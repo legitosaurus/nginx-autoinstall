@@ -6,24 +6,26 @@ if [[ "$EUID" -ne 0 ]]; then
 fi
 
 # Define versions
-NGINX_MAINLINE_VER=1.15.9
-NGINX_STABLE_VER=1.14.2
-LIBRESSL_VER=2.7.5
+NGINX_MAINLINE_VER=1.17.0
+NGINX_STABLE_VER=1.16.0
+LIBRESSL_VER=2.9.2
 OPENSSL_VER=1.1.1
 NPS_VER=1.13.35.2
 HEADERMOD_VER=0.33
 LIBMAXMINDDB_VER=1.3.2
 GEOIP2_VER=3.2
+VTS_VER=0.1.18
 
 # Define installation paramaters for headless install (fallback if unspecifed)
 if [[ "$HEADLESS" == "y" ]]; then
 	OPTION=${OPTION:-1}
-	NGINX_VER=${NGINX_VER:-1}
-	PAGESPEED=${PAGESPEED:-n}
+	NGINX_VER=${NGINX_VER:-2}
+	PAGESPEED=${PAGESPEED:-y}
+	VTRAFFICSTAT=${VTRAFFICSTAT:-y}
 	BROTLI=${BROTLI:-n}
-	HEADERMOD=${HEADERMOD:-n}
-	GEOIP=${GEOIP:-n}
-	FANCYINDEX=${FANCYINDEX:-n}
+	HEADERMOD=${HEADERMOD:-y}
+	GEOIP=${GEOIP:-y}
+	FANCYINDEX=${FANCYINDEX:-y}
 	CACHEPURGE=${CACHEPURGE:-n}
 	WEBDAV=${WEBDAV:-n}
 	SSL=${SSL:-1}
@@ -94,6 +96,8 @@ case $OPTION in
 			done
 			while [[ $GEOIP != "y" && $GEOIP != "n" ]]; do
 				read -p "       GeoIP [y/n]: " -e GEOIP
+			done			while [[ $GEOIP != "y" && $GEOIP != "n" ]]; do
+				read -p "       GeoIP [y/n]: " -e GEOIP
 			done
 			while [[ $FANCYINDEX != "y" && $FANCYINDEX != "n" ]]; do
 				read -p "       Fancy index [y/n]: " -e FANCYINDEX
@@ -103,6 +107,9 @@ case $OPTION in
 			done
 			while [[ $WEBDAV != "y" && $WEBDAV != "n" ]]; do
 				read -p "       nginx WebDAV [y/n]: " -e WEBDAV
+			done
+			while [[ $VTRAFFICSTAT != "y" && $VTRAFFICSTAT != "n" ]]; do
+				read -p "       nginx VTS [y/n]: " -e VTRAFFICSTAT
 			done
 			echo ""
 			echo "Choose your OpenSSL implementation :"
@@ -161,6 +168,13 @@ case $OPTION in
 			cd ngx_brotli || exit 1
 			git checkout v0.1.2
 			git submodule update --init
+		fi
+
+		#Virtual host traffic status module
+		if [[ "$VTRAFFICSTAT" = 'y' ]]; then
+			cd /usr/local/src/nginx/modules || exit 1
+			wget https://github.com/vozlt/nginx-module-vts/archive/v${VTS_VER}.tar.gz
+			tar xaf v${VTS_VER}.tar.gz
 		fi
 
 		# More Headers
@@ -284,6 +298,10 @@ case $OPTION in
 			NGINX_MODULES=$(echo "$NGINX_MODULES"; echo "--add-module=/usr/local/src/nginx/modules/ngx_brotli")
 		fi
 
+		if [[ "$VTRAFFICSTAT" = 'y' ]]; then
+			NGINX_MODULES=$(echo "$NGINX_MODULES"; echo "--add-module=/usr/local/src/nginx/modules/nginx-module-vts-${VTS_VER}")
+		fi
+
 		if [[ "$HEADERMOD" = 'y' ]]; then
 			NGINX_MODULES=$(echo "$NGINX_MODULES"; echo "--add-module=/usr/local/src/nginx/modules/headers-more-nginx-module-${HEADERMOD_VER}")
 		fi
@@ -304,7 +322,7 @@ case $OPTION in
 			git clone --quiet https://github.com/aperezdc/ngx-fancyindex.git /usr/local/src/nginx/modules/fancyindex
 			NGINX_MODULES=$(echo "$NGINX_MODULES"; echo --add-module=/usr/local/src/nginx/modules/fancyindex)
 		fi
-		
+
 		if [[ "$WEBDAV" = 'y' ]]; then
 			git clone --quiet https://github.com/arut/nginx-dav-ext-module.git /usr/local/src/nginx/modules/nginx-dav-ext-module
 			NGINX_MODULES=$(echo "$NGINX_MODULES"; echo --with-http_dav_module --add-module=/usr/local/src/nginx/modules/nginx-dav-ext-module)
